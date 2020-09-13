@@ -443,6 +443,16 @@
       <PATH>U</PATH>
      </RSMPE_FUNT>
      <RSMPE_FUNT>
+      <CODE>&amp;TRA</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_TRANSPORT</TEXT_NAME>
+      <ICON_ID>@4A@</ICON_ID>
+      <FUN_TEXT>Customizing Transport</FUN_TEXT>
+      <ICON_TEXT>Customizing Transport</ICON_TEXT>
+      <INFO_TEXT>Select Transport</INFO_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
       <CODE>&amp;UMC</CODE>
       <TEXTNO>001</TEXTNO>
       <TEXT_TYPE>S</TEXT_TYPE>
@@ -505,6 +515,13 @@
       <TEXTNO>001</TEXTNO>
       <TEXT_TYPE>S</TEXT_TYPE>
       <FUN_TEXT>First Page</FUN_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
+      <CODE>TRANS</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <FUN_TEXT>Customizing Transport</FUN_TEXT>
+      <INFO_TEXT>Select Transport</INFO_TEXT>
      </RSMPE_FUNT>
     </FUN>
     <MEN>
@@ -1198,6 +1215,12 @@
      </RSMPE_PFK>
      <RSMPE_PFK>
       <CODE>000001</CODE>
+      <PFNO>04</PFNO>
+      <FUNCODE>TRANS</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000001</CODE>
       <PFNO>05</PFNO>
       <FUNCODE>&amp;ALL</FUNCODE>
       <FUNNO>001</FUNNO>
@@ -1223,7 +1246,7 @@
      <RSMPE_PFK>
       <CODE>000001</CODE>
       <PFNO>09</PFNO>
-      <FUNCODE>IMG</FUNCODE>
+      <FUNCODE>&amp;TRA</FUNCODE>
       <FUNNO>001</FUNNO>
      </RSMPE_PFK>
      <RSMPE_PFK>
@@ -1664,6 +1687,10 @@
      </RSMPE_STAF>
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>
+      <FUNCTION>&amp;TRA</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>STANDARD</STATUS>
       <FUNCTION>&amp;UMC</FUNCTION>
      </RSMPE_STAF>
      <RSMPE_STAF>
@@ -1861,6 +1888,10 @@
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>
       <FUNCTION>SUMC</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>STANDARD</STATUS>
+      <FUNCTION>TRANS</FUNCTION>
      </RSMPE_STAF>
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>
