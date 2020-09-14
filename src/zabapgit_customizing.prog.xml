@@ -517,6 +517,16 @@
       <FUN_TEXT>First Page</FUN_TEXT>
      </RSMPE_FUNT>
      <RSMPE_FUNT>
+      <CODE>PUSH</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_EXPORT</TEXT_NAME>
+      <ICON_ID>@49@</ICON_ID>
+      <FUN_TEXT>Stage</FUN_TEXT>
+      <ICON_TEXT>Stage</ICON_TEXT>
+      <INFO_TEXT>Export to repository</INFO_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
       <CODE>TRANS</CODE>
       <TEXTNO>001</TEXTNO>
       <TEXT_TYPE>S</TEXT_TYPE>
@@ -1193,6 +1203,12 @@
       <NO>33</NO>
       <PFNO>09</PFNO>
      </RSMPE_BUT>
+     <RSMPE_BUT>
+      <PFK_CODE>000001</PFK_CODE>
+      <CODE>0001</CODE>
+      <NO>34</NO>
+      <PFNO>20</PFNO>
+     </RSMPE_BUT>
     </BUT>
     <PFK>
      <RSMPE_PFK>
@@ -1271,6 +1287,12 @@
       <CODE>000001</CODE>
       <PFNO>19</PFNO>
       <FUNCODE>&amp;CRE</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000001</CODE>
+      <PFNO>20</PFNO>
+      <FUNCODE>PUSH</FUNCODE>
       <FUNNO>001</FUNNO>
      </RSMPE_PFK>
      <RSMPE_PFK>
@@ -1840,6 +1862,10 @@
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>
       <FUNCTION>PRNT</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>STANDARD</STATUS>
+      <FUNCTION>PUSH</FUNCTION>
      </RSMPE_STAF>
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>

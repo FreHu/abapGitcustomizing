@@ -44,12 +44,15 @@
         IMPORTING
           iv_request TYPE trkorr.
 
+      METHODS stage.
+
     PRIVATE SECTION.
 
       TYPES: BEGIN OF ty_customizing,
                objecttype_description TYPE ddtext,
                objecttype             TYPE trobjtype,
                objectname             TYPE trobj_name,
+               bcset_id               TYPE string,
                xml_output             TYPE REF TO zcl_abapgit_xml_output,
              END OF ty_customizing.
 
@@ -68,7 +71,6 @@
 
       DATA mo_repository TYPE REF TO zcl_abapgit_repo.
       DATA mo_customizing_output TYPE REF TO cl_salv_table.
-
       DATA mt_abapgit_customizing TYPE STANDARD TABLE OF ty_customizing.
       DATA mt_fielddescrs TYPE scpr_records .
 
@@ -113,6 +115,12 @@
 
           lo_abapgit_customizing->handle_customzing_request( lv_selected_request ).
 
+        WHEN 'PUSH'.
+
+          lo_abapgit_customizing = lcl_abapgit_customizing=>get_instance( ).
+
+          lo_abapgit_customizing->stage( ).
+
         WHEN OTHERS.
 
       ENDCASE.
@@ -148,6 +156,13 @@
 
       DATA(lo_columns) = mo_customizing_output->get_columns( ).
       lo_columns->set_optimize( ).
+
+      DATA(lo_column) = lo_columns->get_column( 'BCSET_ID' ).
+      lo_column->set_technical( ).
+
+
+      DATA(lo_selections) = mo_customizing_output->get_selections( ).
+      lo_selections->set_selection_mode( if_salv_c_selection_mode=>multiple ).
 
       DATA(lo_events) = mo_customizing_output->get_event( ).
 
@@ -284,6 +299,7 @@
         APPEND VALUE #( objecttype_description = <ls_tr_object_description>-text
                         objecttype             = <ls_tr_object_description>-object
                         objectname             = <ls_object>-objectname
+                        bcset_id               = lv_bcset_id
                         xml_output             = lo_xml_data
                       ) TO mt_abapgit_customizing[].
 
@@ -364,6 +380,48 @@
       ro_xml_output->add( iv_name = 'SCP1'
                           ig_data = ls_bcset_metadata
                         ).
+
+    ENDMETHOD.
+
+    METHOD stage.
+
+      DATA: lo_repository         TYPE REF TO zcl_abapgit_repo_online.
+
+      DATA(lo_selections) = mo_customizing_output->get_selections( ).
+
+      DATA(lt_selected_rows) = lo_selections->get_selected_rows( ).
+
+      DATA(lo_staged_files) = NEW zcl_abapgit_stage( ).
+
+      LOOP AT lt_selected_rows[] ASSIGNING FIELD-SYMBOL(<lv_selected_row>).
+
+        READ TABLE mt_abapgit_customizing[] ASSIGNING FIELD-SYMBOL(<ls_abapgit_customizing>) INDEX <lv_selected_row>.
+
+        DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type = 'SCP1'
+                                                                obj_name = <ls_abapgit_customizing>-bcset_id
+                                                                devclass = mo_repository->get_package( )
+                                                              ).
+
+        DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = ls_item ).
+
+*       add xml data to file
+        lo_object_files->add_xml( <ls_abapgit_customizing>-xml_output ).
+
+        LOOP AT lo_object_files->get_files( ) ASSIGNING FIELD-SYMBOL(<ls_file>).
+
+          <ls_file>-sha1 = zcl_abapgit_hash=>sha1( iv_type = zif_abapgit_definitions=>c_type-blob
+                                                   iv_data = <ls_file>-data
+                                                 ).
+
+*         Add files to stage
+          lo_staged_files->add( iv_path     = <ls_file>-path
+                                iv_filename = <ls_file>-filename
+                                iv_data     = <ls_file>-data
+                              ).
+
+        ENDLOOP.
+
+      ENDLOOP.
 
     ENDMETHOD.
 
