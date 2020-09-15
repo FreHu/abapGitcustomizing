@@ -5,6 +5,10 @@
 *&---------------------------------------------------------------------*
   REPORT zabapgit_customizing.
 
+  TABLES sscrfields.
+
+  INCLUDE zabapgit_password_dialog.
+
   TYPES: BEGIN OF gty_repository_display,
            key     TYPE char12,
            name    TYPE string,
@@ -385,7 +389,11 @@
 
     METHOD stage.
 
-      DATA: lo_repository         TYPE REF TO zcl_abapgit_repo_online.
+      DATA: lo_repository TYPE REF TO zcl_abapgit_repo_online.
+
+      DATA: lt_fields TYPE STANDARD TABLE OF sval.
+
+      DATA: ls_commit_fields TYPE zif_abapgit_services_git=>ty_commit_fields.
 
       DATA(lo_selections) = mo_customizing_output->get_selections( ).
 
@@ -409,12 +417,8 @@
 
         LOOP AT lo_object_files->get_files( ) ASSIGNING FIELD-SYMBOL(<ls_file>).
 
-          <ls_file>-sha1 = zcl_abapgit_hash=>sha1( iv_type = zif_abapgit_definitions=>c_type-blob
-                                                   iv_data = <ls_file>-data
-                                                 ).
-
 *         Add files to stage
-          lo_staged_files->add( iv_path     = <ls_file>-path
+          lo_staged_files->add( iv_path     = '/customizing/'
                                 iv_filename = <ls_file>-filename
                                 iv_data     = <ls_file>-data
                               ).
@@ -423,9 +427,68 @@
 
       ENDLOOP.
 
+      lo_repository ?= mo_repository.
+
+      DATA(lo_user) = zcl_abapgit_persistence_user=>get_instance( ).
+
+      lt_fields[] = VALUE #( ( tabname = 'SUID_ST_NODE_PERSON_NAME'    fieldname = 'NAME_TEXT'   value     = lo_user->get_repo_git_user_name( lo_repository->get_url( ) )  field_obl = abap_true )
+                             ( tabname = 'SUID_ST_NODE_COMM_DATA'      fieldname = 'SMTP_ADDR'   value     = lo_user->get_repo_git_user_email( lo_repository->get_url( ) ) field_obl = abap_true )
+                             ( tabname = 'SUID_ST_NODE_TECH_USER_DATA' fieldname = 'TECHDESC'    fieldtext = 'Comment'                                                     field_obl = abap_true ) ).
+
+      CALL FUNCTION 'POPUP_GET_VALUES'
+        EXPORTING
+          popup_title     = 'Commit'    " Text of title line
+        TABLES
+          fields          = lt_fields[] " Table fields, values and attributes
+        EXCEPTIONS
+          error_in_fields = 1           " FIELDS were transferred incorrectly
+          OTHERS          = 2.
+      IF sy-subrc = 0.
+
+        LOOP AT lt_fields[] ASSIGNING FIELD-SYMBOL(<ls_field>).
+
+          CASE <ls_field>-fieldname.
+
+            WHEN 'NAME_TEXT'.
+              ls_commit_fields-committer_name = <ls_field>-value.
+
+            WHEN 'SMTP_ADDR'.
+              ls_commit_fields-committer_email = <ls_field>-value.
+
+            WHEN 'TECHDESC'.
+              ls_commit_fields-comment = <ls_field>-value.
+
+            WHEN OTHERS.
+          ENDCASE.
+
+        ENDLOOP.
+
+      ENDIF.
+
+      zcl_abapgit_services_git=>commit( io_repo   = lo_repository
+                                        is_commit = ls_commit_fields
+                                        io_stage  = lo_staged_files
+                                      ).
+
     ENDMETHOD.
 
   ENDCLASS.
+
+  INITIALIZATION.
+
+    lcl_password_dialog=>on_screen_init( ).
+
+  AT SELECTION-SCREEN OUTPUT.
+
+    IF sy-dynnr = lcl_password_dialog=>c_dynnr.
+      lcl_password_dialog=>on_screen_output( ).
+    ENDIF.
+
+  AT SELECTION-SCREEN.
+
+    IF sy-dynnr = lcl_password_dialog=>c_dynnr.
+      lcl_password_dialog=>on_screen_event( sscrfields-ucomm ).
+    ENDIF.
 
   START-OF-SELECTION.
 
@@ -477,3 +540,19 @@
     SET HANDLER go_event_handler->on_double_click FOR lo_events.
 
     go_repository_output->display( ).
+
+  FORM password_popup
+        USING
+          pv_repo_url TYPE string
+        CHANGING
+          cv_user     TYPE string
+          cv_pass     TYPE string.
+
+    lcl_password_dialog=>popup(
+      EXPORTING
+        iv_repo_url     = pv_repo_url
+      CHANGING
+        cv_user         = cv_user
+        cv_pass         = cv_pass ).
+
+  ENDFORM.
