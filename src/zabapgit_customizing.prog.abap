@@ -57,7 +57,8 @@
                objecttype             TYPE trobjtype,
                objectname             TYPE trobj_name,
                bcset_id               TYPE string,
-               xml_output             TYPE REF TO zcl_abapgit_xml_output,
+               xml_local              TYPE REF TO zcl_abapgit_xml_output,
+               xml_remote             TYPE REF TO zcl_abapgit_xml_input,
              END OF ty_customizing.
 
       TYPES:
@@ -80,11 +81,11 @@
 
       METHODS create_xml
         IMPORTING
-          iv_bcset_id          TYPE scpr_id
-          it_record_attribute  TYPE scprrecatab
-          it_bcset_values      TYPE scprvalstab
+          iv_bcset_id         TYPE scpr_id
+          it_record_attribute TYPE scprrecatab
+          it_bcset_values     TYPE scprvalstab
         RETURNING
-          VALUE(ro_xml_output) TYPE REF TO zcl_abapgit_xml_output.
+          VALUE(ro_xml_local) TYPE REF TO zcl_abapgit_xml_output.
 
   ENDCLASS.
 
@@ -137,12 +138,145 @@
 
     METHOD display.
 
+      DATA: lo_local_container TYPE REF TO cl_bcfg_bcset_config_container.
+
+      DATA: lt_tr_objects             TYPE STANDARD TABLE OF ko105,
+            lt_tr_object_descriptions TYPE STANDARD TABLE OF ko100,
+            lt_scprvall               TYPE STANDARD TABLE OF scprvall.
+
+      DATA: ls_bcset_metadata       TYPE ty_bcset_metadata,
+            ls_tr_object            TYPE ko105,
+            ls_bcset_metadata_local TYPE ty_bcset_metadata.
+
       DATA(lo_repository_service) = zcl_abapgit_repo_srv=>get_instance( ).
 
       mo_repository = lo_repository_service->get( iv_key ).
 
-      DATA(lt_status) = zcl_abapgit_file_status=>status( io_repo = mo_repository ).
+      DATA(lt_remote_files) = mo_repository->get_files_remote( ).
 
+*     Ignore other files
+      LOOP AT lt_remote_files[] ASSIGNING FIELD-SYMBOL(<ls_remote_file>)
+                                WHERE path = '/customizing/'.
+
+        SPLIT to_upper( <ls_remote_file>-filename ) AT '.' INTO DATA(lv_name)
+                                                                DATA(lv_type)
+                                                                DATA(lv_ext).
+
+        CHECK lv_type = 'SCP1'.
+
+        DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = VALUE #( obj_type = lv_type obj_name = lv_name ) ).
+
+        lo_object_files->add( <ls_remote_file> ).
+
+        DATA(lo_xml_remote) = lo_object_files->read_xml( ).
+
+        lo_xml_remote->read(
+          EXPORTING
+            iv_name = 'SCP1'
+          CHANGING
+            cg_data = ls_bcset_metadata
+        ).
+
+        READ TABLE ls_bcset_metadata-scprreca[] ASSIGNING FIELD-SYMBOL(<ls_scprreca>) INDEX 1.
+
+        CALL FUNCTION 'CTO_OBJECT_GET_TROBJECT'
+          EXPORTING
+            iv_objectname       = <ls_scprreca>-objectname                 " Object Name
+            iv_objecttype       = <ls_scprreca>-objecttype                 " Object Type
+          IMPORTING
+            ev_pgmid            = ls_tr_object-pgmid
+            ev_object           = ls_tr_object-object
+          EXCEPTIONS
+            no_transport_object = 1
+            OTHERS              = 2.
+        IF sy-subrc =  0.
+
+          APPEND ls_tr_object TO lt_tr_objects[].
+
+        ENDIF.
+
+*       Get object type description
+        CALL FUNCTION 'TRINT_OBJECT_TABLE'
+          TABLES
+            tt_types_in  = lt_tr_objects[]             " Input: Types for search (for IV_COMPLETE = ' ')
+            tt_types_out = lt_tr_object_descriptions[]. " Output: Types with texts
+
+        READ TABLE lt_tr_object_descriptions[] ASSIGNING FIELD-SYMBOL(<ls_tr_object_description>) INDEX 1.
+
+        DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_scprreca>-objectname objecttype = <ls_scprreca>-objecttype ) ).
+
+        lt_scprvall[] = ls_bcset_metadata-scprvall[].
+
+        SORT lt_scprvall[] BY langu.
+
+        DELETE ADJACENT DUPLICATES FROM lt_scprvall[]
+        COMPARING langu.
+
+        DATA(lt_languages) = VALUE if_bcfg_config_container=>ty_t_languages( FOR ls_scprvall IN lt_scprvall[] ( ls_scprvall-langu ) ).
+        IF lt_languages[] IS INITIAL.
+
+          APPEND sy-langu TO lt_languages[].
+
+        ENDIF.
+
+        lo_local_container ?= cl_bcfg_config_manager=>create_container(
+                                     io_container_type  = cl_bcfg_enum_container_type=>classic
+                                     it_langus          = lt_languages[]
+                                     it_object_mappings = lt_mappings[]
+                                   ).
+
+        DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprvals IN ls_bcset_metadata-scprvals
+                                                                                      ( tablename = ls_scprvals-tablename
+                                                                                        fieldname = ls_scprvals-fieldname
+                                                                                        rec_id    = ls_scprvals-recnumber
+                                                                                        value     = ls_scprvals-value ) ).
+
+        LOOP AT ls_bcset_metadata-scprvall[] ASSIGNING FIELD-SYMBOL(<ls_scprvall>).
+
+          INSERT VALUE #( tablename = <ls_scprvall>-tablename
+                          fieldname = <ls_scprvall>-fieldname
+                          rec_id    = <ls_scprvall>-recnumber
+                          langu     = <ls_scprvall>-langu
+                          value     = <ls_scprvall>-value )
+          INTO TABLE lt_field_values[].
+
+        ENDLOOP.
+
+        lo_local_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
+
+        DATA(lo_key_container) = lo_local_container->if_bcfg_config_container~extract_key_container( ).
+
+*       Remove the data from container
+        lo_local_container->if_bcfg_config_container~remove_all( ).
+
+*       Read data
+        lo_local_container->if_bcfg_config_container~add_current_config( lo_key_container ).
+
+*       Convert to SCP1 format
+        lo_local_container->if_bcfg_has_data_manager~get_data_manager( )->convert_to_bcset(
+          EXPORTING
+            iv_id   = lo_local_container->if_bcfg_config_container~get_id( )
+          CHANGING
+            ct_reca = ls_bcset_metadata_local-scprreca[]
+            ct_vals = ls_bcset_metadata_local-scprvals[]
+            ct_vall = ls_bcset_metadata_local-scprvall[]
+        ).
+
+*       Create XML file
+        DATA(lo_xml_local) = create_xml( iv_bcset_id         = ls_bcset_metadata-scprattr-id
+                                         it_record_attribute = ls_bcset_metadata-scprreca[]
+                                         it_bcset_values     = ls_bcset_metadata_local-scprvals[]
+                                       ).
+
+        APPEND VALUE #( objecttype_description = <ls_tr_object_description>-text
+                        objecttype             = <ls_tr_object_description>-object
+                        objectname             = <ls_scprreca>-objectname
+                        bcset_id               = <ls_scprreca>-id
+                        xml_local              = lo_xml_local
+                        xml_remote             = lo_xml_remote
+                      ) TO mt_abapgit_customizing[].
+
+      ENDLOOP.
 
       cl_salv_table=>factory(
         IMPORTING
@@ -304,7 +438,7 @@
                         objecttype             = <ls_tr_object_description>-object
                         objectname             = <ls_object>-objectname
                         bcset_id               = lv_bcset_id
-                        xml_output             = lo_xml_data
+                        xml_local              = lo_xml_data
                       ) TO mt_abapgit_customizing[].
 
       ENDLOOP.
@@ -328,7 +462,7 @@
                      <ls_values>  TYPE scprvals.
 
 *     Instantiate the XML object
-      CREATE OBJECT ro_xml_output.
+      CREATE OBJECT ro_xml_local.
 
 *     Get system type
       CALL FUNCTION 'TR_SYS_PARAMS'
@@ -381,7 +515,7 @@
           fielddescrs = mt_fielddescrs[].
 
 *     Add metadata to XML
-      ro_xml_output->add( iv_name = 'SCP1'
+      ro_xml_local->add( iv_name = 'SCP1'
                           ig_data = ls_bcset_metadata
                         ).
 
@@ -413,7 +547,7 @@
         DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = ls_item ).
 
 *       add xml data to file
-        lo_object_files->add_xml( <ls_abapgit_customizing>-xml_output ).
+        lo_object_files->add_xml( <ls_abapgit_customizing>-xml_local ).
 
         LOOP AT lo_object_files->get_files( ) ASSIGNING FIELD-SYMBOL(<ls_file>).
 
