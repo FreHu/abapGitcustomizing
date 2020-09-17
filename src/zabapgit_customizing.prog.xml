@@ -517,6 +517,16 @@
       <FUN_TEXT>First Page</FUN_TEXT>
      </RSMPE_FUNT>
      <RSMPE_FUNT>
+      <CODE>PULL</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_IMPORT</TEXT_NAME>
+      <ICON_ID>@48@</ICON_ID>
+      <FUN_TEXT>Pull</FUN_TEXT>
+      <ICON_TEXT>Pull</ICON_TEXT>
+      <INFO_TEXT>Import customizing</INFO_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
       <CODE>PUSH</CODE>
       <TEXTNO>001</TEXTNO>
       <TEXT_TYPE>S</TEXT_TYPE>
@@ -1209,6 +1219,12 @@
       <NO>34</NO>
       <PFNO>20</PFNO>
      </RSMPE_BUT>
+     <RSMPE_BUT>
+      <PFK_CODE>000001</PFK_CODE>
+      <CODE>0001</CODE>
+      <NO>35</NO>
+      <PFNO>13</PFNO>
+     </RSMPE_BUT>
     </BUT>
     <PFK>
      <RSMPE_PFK>
@@ -1269,6 +1285,12 @@
       <CODE>000001</CODE>
       <PFNO>12</PFNO>
       <FUNCODE>&amp;F12</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000001</CODE>
+      <PFNO>13</PFNO>
+      <FUNCODE>PULL</FUNCODE>
       <FUNNO>001</FUNNO>
      </RSMPE_PFK>
      <RSMPE_PFK>
@@ -1862,6 +1884,10 @@
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>
       <FUNCTION>PRNT</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>STANDARD</STATUS>
+      <FUNCTION>PULL</FUNCTION>
      </RSMPE_STAF>
      <RSMPE_STAF>
       <STATUS>STANDARD</STATUS>

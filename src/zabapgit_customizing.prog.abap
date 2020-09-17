@@ -50,6 +50,8 @@
 
       METHODS stage.
 
+      METHODS pull.
+
     PRIVATE SECTION.
 
       TYPES: BEGIN OF ty_customizing,
@@ -59,6 +61,7 @@
                bcset_id               TYPE string,
                xml_local              TYPE REF TO zcl_abapgit_xml_output,
                xml_remote             TYPE REF TO zcl_abapgit_xml_input,
+               color                  TYPE lvc_t_scol,
              END OF ty_customizing.
 
       TYPES:
@@ -126,6 +129,12 @@
 
           lo_abapgit_customizing->stage( ).
 
+        WHEN 'PULL'.
+
+          lo_abapgit_customizing = lcl_abapgit_customizing=>get_instance( ).
+
+          lo_abapgit_customizing->pull( ).
+
         WHEN OTHERS.
 
       ENDCASE.
@@ -138,7 +147,8 @@
 
     METHOD display.
 
-      DATA: lo_local_container TYPE REF TO cl_bcfg_bcset_config_container.
+      DATA: lo_local_container  TYPE REF TO cl_bcfg_bcset_config_container,
+            lo_remote_container TYPE REF TO cl_bcfg_bcset_config_container.
 
       DATA: lt_tr_objects             TYPE STANDARD TABLE OF ko105,
             lt_tr_object_descriptions TYPE STANDARD TABLE OF ko100,
@@ -219,12 +229,6 @@
 
         ENDIF.
 
-        lo_local_container ?= cl_bcfg_config_manager=>create_container(
-                                     io_container_type  = cl_bcfg_enum_container_type=>classic
-                                     it_langus          = lt_languages[]
-                                     it_object_mappings = lt_mappings[]
-                                   ).
-
         DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprvals IN ls_bcset_metadata-scprvals
                                                                                       ( tablename = ls_scprvals-tablename
                                                                                         fieldname = ls_scprvals-fieldname
@@ -242,6 +246,24 @@
 
         ENDLOOP.
 
+*       Create configuration container for remote file
+        lo_remote_container ?= cl_bcfg_config_manager=>create_container(
+                                     io_container_type  = cl_bcfg_enum_container_type=>classic
+                                     it_langus          = lt_languages[]
+                                     it_object_mappings = lt_mappings[]
+                               ).
+
+*       Add data from remote file to configuration container
+        lo_remote_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
+
+*       Create configuration container for local file
+        lo_local_container ?= cl_bcfg_config_manager=>create_container(
+                                     io_container_type  = cl_bcfg_enum_container_type=>classic
+                                     it_langus          = lt_languages[]
+                                     it_object_mappings = lt_mappings[]
+                              ).
+
+*       Add data from local file to configuration container
         lo_local_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
 
         DATA(lo_key_container) = lo_local_container->if_bcfg_config_container~extract_key_container( ).
@@ -268,12 +290,19 @@
                                          it_bcset_values     = ls_bcset_metadata_local-scprvals[]
                                        ).
 
+*       Is there a difference between containers?
+        DATA(lv_is_equal) = lo_local_container->if_bcfg_config_container~equals( lo_remote_container ).
+        IF lv_is_equal = abap_false.
+          DATA(lt_color) = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
+        ENDIF.
+
         APPEND VALUE #( objecttype_description = <ls_tr_object_description>-text
                         objecttype             = <ls_tr_object_description>-object
                         objectname             = <ls_scprreca>-objectname
                         bcset_id               = <ls_scprreca>-id
                         xml_local              = lo_xml_local
                         xml_remote             = lo_xml_remote
+                        color                  = lt_color[]
                       ) TO mt_abapgit_customizing[].
 
       ENDLOOP.
@@ -298,6 +327,7 @@
       DATA(lo_column) = lo_columns->get_column( 'BCSET_ID' ).
       lo_column->set_technical( ).
 
+      lo_columns->set_color_column( 'COLOR' ).
 
       DATA(lo_selections) = mo_customizing_output->get_selections( ).
       lo_selections->set_selection_mode( if_salv_c_selection_mode=>multiple ).
@@ -481,7 +511,7 @@
 *     Populate BC set header data
       ls_bcset_metadata-scprattr-id      = iv_bcset_id.
       ls_bcset_metadata-scprattr-version = 'N'.
-      ls_bcset_metadata-scprattr-type    = 'AGC'.
+      ls_bcset_metadata-scprattr-type    = 'GEN'.
       ls_bcset_metadata-scprattr-reftype = 'TRAN'.
 *    ls_bcset_metadata-scprattr-refname = ms_request_details-h-trkorr.
       ls_bcset_metadata-scprattr-orgid   = lv_org_id.
@@ -603,6 +633,77 @@
                                         is_commit = ls_commit_fields
                                         io_stage  = lo_staged_files
                                       ).
+
+    ENDMETHOD.
+
+    METHOD pull.
+
+      DATA: ls_bcset_metadata TYPE ty_bcset_metadata.
+
+      DATA(lo_selections) = mo_customizing_output->get_selections( ).
+
+      DATA(lt_selected_rows) = lo_selections->get_selected_rows( ).
+
+      LOOP AT lt_selected_rows[] ASSIGNING FIELD-SYMBOL(<lv_selected_row>).
+
+        READ TABLE mt_abapgit_customizing[] ASSIGNING FIELD-SYMBOL(<ls_abapgit_customizing>) INDEX <lv_selected_row>.
+
+        <ls_abapgit_customizing>-xml_remote->read(
+          EXPORTING
+            iv_name = 'SCP1'
+          CHANGING
+            cg_data = ls_bcset_metadata
+        ).
+
+        READ TABLE ls_bcset_metadata-scprreca[] ASSIGNING FIELD-SYMBOL(<ls_scprreca>) INDEX 1.
+
+        DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_scprreca>-objectname objecttype = <ls_scprreca>-objecttype ) ).
+
+        DATA(lt_scprvall) = ls_bcset_metadata-scprvall[].
+
+        SORT lt_scprvall[] BY langu.
+
+        DELETE ADJACENT DUPLICATES FROM lt_scprvall[]
+        COMPARING langu.
+
+        DATA(lt_languages) = VALUE if_bcfg_config_container=>ty_t_languages( FOR ls_scprvall IN lt_scprvall[] ( ls_scprvall-langu ) ).
+        IF lt_languages[] IS INITIAL.
+
+          APPEND sy-langu TO lt_languages[].
+
+        ENDIF.
+
+        DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprvals IN ls_bcset_metadata-scprvals
+                                                                                      ( tablename = ls_scprvals-tablename
+                                                                                        fieldname = ls_scprvals-fieldname
+                                                                                        rec_id    = ls_scprvals-recnumber
+                                                                                        value     = ls_scprvals-value ) ).
+
+        LOOP AT ls_bcset_metadata-scprvall[] ASSIGNING FIELD-SYMBOL(<ls_scprvall>).
+
+          INSERT VALUE #( tablename = <ls_scprvall>-tablename
+                          fieldname = <ls_scprvall>-fieldname
+                          rec_id    = <ls_scprvall>-recnumber
+                          langu     = <ls_scprvall>-langu
+                          value     = <ls_scprvall>-value )
+          INTO TABLE lt_field_values[].
+
+        ENDLOOP.
+
+*       Create configuration container for remote file
+        DATA(lo_container) = cl_bcfg_config_manager=>create_container( io_container_type  = cl_bcfg_enum_container_type=>classic
+                                                                       it_langus          = lt_languages[]
+                                                                       it_object_mappings = lt_mappings[]
+                                                                       io_commit_mode     = cl_bcfg_enum_commit_mode=>auto_commit
+                                                                     ).
+
+*       Add data from remote file to configuration container
+        lo_container->add_lines_by_fields( lt_field_values[] ).
+
+*       Apply customizing content
+        DATA(lo_result) = lo_container->apply( ).
+
+      ENDLOOP.
 
     ENDMETHOD.
 
