@@ -62,6 +62,8 @@
                xml_local              TYPE REF TO zcl_abapgit_xml_output,
                xml_remote             TYPE REF TO zcl_abapgit_xml_input,
                color                  TYPE lvc_t_scol,
+               display_comparison     TYPE icon_d,
+               celltype               TYPE salv_t_int4_column,
              END OF ty_customizing.
 
       TYPES:
@@ -148,7 +150,8 @@
     METHOD display.
 
       DATA: lo_local_container  TYPE REF TO cl_bcfg_bcset_config_container,
-            lo_remote_container TYPE REF TO cl_bcfg_bcset_config_container.
+            lo_remote_container TYPE REF TO cl_bcfg_bcset_config_container,
+            lo_column           TYPE REF TO cl_salv_column_table.
 
       DATA: lt_tr_objects             TYPE STANDARD TABLE OF ko105,
             lt_tr_object_descriptions TYPE STANDARD TABLE OF ko100,
@@ -294,6 +297,8 @@
         DATA(lv_is_equal) = lo_local_container->if_bcfg_config_container~equals( lo_remote_container ).
         IF lv_is_equal = abap_false.
           DATA(lt_color) = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
+          DATA(lv_button) = icon_difference.
+          DATA(lt_cell_types) = VALUE salv_t_int4_column( ( columnname = 'DISPLAY_COMPARISON' value = if_salv_c_cell_type=>hotspot ) ).
         ENDIF.
 
         APPEND VALUE #( objecttype_description = <ls_tr_object_description>-text
@@ -303,6 +308,8 @@
                         xml_local              = lo_xml_local
                         xml_remote             = lo_xml_remote
                         color                  = lt_color[]
+                        display_comparison     = lv_button
+                        celltype               = lt_cell_types[]
                       ) TO mt_abapgit_customizing[].
 
       ENDLOOP.
@@ -324,10 +331,16 @@
       DATA(lo_columns) = mo_customizing_output->get_columns( ).
       lo_columns->set_optimize( ).
 
-      DATA(lo_column) = lo_columns->get_column( 'BCSET_ID' ).
+      lo_column ?= lo_columns->get_column( 'BCSET_ID' ).
       lo_column->set_technical( ).
 
+      lo_column ?= lo_columns->get_column( 'DISPLAY_COMPARISON' ).
+      lo_column->set_icon( if_salv_c_bool_sap=>true ).
+      lo_column->set_long_text( 'Display Differences' ).
+
       lo_columns->set_color_column( 'COLOR' ).
+
+      lo_columns->set_cell_type_column( 'CELLTYPE' ).
 
       DATA(lo_selections) = mo_customizing_output->get_selections( ).
       lo_selections->set_selection_mode( if_salv_c_selection_mode=>multiple ).
@@ -700,8 +713,21 @@
 *       Add data from remote file to configuration container
         lo_container->add_lines_by_fields( lt_field_values[] ).
 
+*       Create request manager
+        DATA(lo_request_manager) = cl_cts_request_factory=>create( sysname = sy-sysid ).
+
+        lo_request_manager->select_requests(
+          EXPORTING
+            user              = sy-uname                 " Owner of Request/Task
+            request_selection = VALUE #( ( client = sy-mandt reqfunctions = 'W' reqstatus = 'D' ) )
+          IMPORTING
+            requests          = DATA(lt_requests)
+        ).
+
+        READ TABLE lt_requests[] ASSIGNING FIELD-SYMBOL(<ls_request>) INDEX 1.
+
 *       Apply customizing content
-        DATA(lo_result) = lo_container->apply( ).
+        DATA(lo_result) = lo_container->apply( iv_tp_cust = <ls_request>-h-trkorr ).
 
       ENDLOOP.
 
