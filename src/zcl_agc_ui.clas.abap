@@ -186,7 +186,7 @@ CLASS zcl_agc_ui IMPLEMENTATION.
       DATA(lo_container_remote) = zcl_agc_helper=>create_container( is_bcset_metadata = ls_bcset_metadata ).
 
 *     Create configuration container for local file
-      DATA(lo_container_local) = lo_container_remote.
+      DATA(lo_container_local) = zcl_agc_helper=>create_container( is_bcset_metadata = ls_bcset_metadata ).
 
 *     Extract key metadata
       DATA(lo_key_container) = lo_container_local->if_bcfg_config_container~extract_key_container( ).
