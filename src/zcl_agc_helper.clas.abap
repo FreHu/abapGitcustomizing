@@ -64,8 +64,12 @@ CLASS zcl_agc_helper IMPLEMENTATION.
 
     DATA(lv_objecttype) = SWITCH #( <ls_object>-objecttype WHEN 'U' THEN 'T'
                                                            ELSE <ls_object>-objecttype ).
+
+    DATA(lv_tablename) = SWITCH #( <ls_object>-objecttype WHEN 'U' THEN <ls_object>-objectname
+                                                          ELSE space ).
+
 *   Create mapping
-    DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_object>-objectname objecttype = lv_objecttype activity = <ls_object>-activity ) ).
+    DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_object>-objectname objecttype = lv_objecttype activity = <ls_object>-activity tablename = lv_tablename ) ).
 
 *   Create configuration container for remote file
     ro_container ?= cl_bcfg_config_manager=>create_container( io_container_type  = cl_bcfg_enum_container_type=>classic

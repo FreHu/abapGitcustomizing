@@ -182,26 +182,8 @@ CLASS zcl_agc_ui IMPLEMENTATION.
           cg_data = ls_bcset_metadata
       ).
 
-*     Get transport object from BC Set format data
-      CALL FUNCTION 'SCPR_SV_GET_OBJECTS_IN_BCSET'
-        EXPORTING
-          bcset_id = ls_bcset_metadata-scprattr-id
-          category = ls_bcset_metadata-scprattr-category
-          recattr  = ls_bcset_metadata-scprreca[]
-        IMPORTING
-          objects  = lt_objects[].
-
-      READ TABLE lt_objects[] ASSIGNING FIELD-SYMBOL(<ls_object>) INDEX 1.
-
-*     Create mapping
-      DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_object>-objectname objecttype = <ls_object>-objecttype activity = <ls_object>-activity ) ).
-
 *     Create configuration container for remote file
       DATA(lo_container_remote) = zcl_agc_helper=>create_container( is_bcset_metadata = ls_bcset_metadata ).
-
-*      DATA(lo_container_remote) = create_container( is_bcset_metadata = ls_bcset_metadata
-*                                                    it_mappings       = lt_mappings[]
-*                                                  ).
 
 *     Create configuration container for local file
       DATA(lo_container_local) = lo_container_remote.
@@ -221,11 +203,30 @@ CLASS zcl_agc_ui IMPLEMENTATION.
 
       ENDIF.
 
+*     Get mappings
+      DATA(lt_mappings) = lo_container_remote->if_bcfg_config_container~get_mappings( ).
+
+      READ TABLE lt_mappings[] ASSIGNING FIELD-SYMBOL(<ls_mapping>) INDEX 1.
+
+      DATA(lv_objecttype) = <ls_mapping>-objecttype.
+
+      CALL FUNCTION 'SCPR_DB_COBJ_TYPE_GET'
+        EXPORTING
+          custobj           = <ls_mapping>-objectname
+        EXCEPTIONS
+          object_dont_exist = 1
+          OTHERS            = 2.
+      IF sy-subrc NE 0.
+
+        lv_objecttype = 'U'.
+
+      ENDIF.
+
 *     Get transport object type
       CALL FUNCTION 'CTO_OBJECT_GET_TROBJECT'
         EXPORTING
-          iv_objectname       = <ls_object>-objectname                 " Object Name
-          iv_objecttype       = <ls_object>-objecttype                 " Object Type
+          iv_objectname       = <ls_mapping>-objectname " Object Name
+          iv_objecttype       = lv_objecttype           " Object Type
         IMPORTING
           ev_object           = lv_tr_object_type
         EXCEPTIONS
@@ -234,7 +235,7 @@ CLASS zcl_agc_ui IMPLEMENTATION.
       CHECK sy-subrc = 0.
 
       APPEND VALUE #( objecttype             = lv_tr_object_type
-                      objectname             = <ls_object>-objectname
+                      objectname             = <ls_mapping>-objectname
                       path                   = <ls_file_remote>-path && <ls_file_remote>-filename
                       bcset_id               = ls_bcset_metadata-scprattr-id
                       container_local        = lo_container_local
