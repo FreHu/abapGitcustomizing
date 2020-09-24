@@ -85,6 +85,8 @@ CLASS zcl_agc_repository_ui IMPLEMENTATION.
 
     LOOP AT lt_repositories[] ASSIGNING FIELD-SYMBOL(<ls_repository>).
 
+      CHECK <ls_repository>->is_offline( ) = abap_false.
+
       lo_repository_online ?= <ls_repository>.
 
       TRY.

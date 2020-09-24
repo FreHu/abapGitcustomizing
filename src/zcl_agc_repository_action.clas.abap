@@ -69,9 +69,9 @@ CLASS zcl_agc_repository_action IMPLEMENTATION.
                         ig_data = ls_bcset_metadata
                       ).
 
-      DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type     = 'SCP1'
+      DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type = 'SCP1'
                                                               obj_name = <ls_customizing_ui>-bcset_id
-                                                              devclass = <ls_customizing_ui>-package
+                                                              devclass = zcl_agc_ui=>get_instance( )->get_repository( )->get_package( )
                                                             ).
 
       DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = ls_item ).
@@ -96,8 +96,8 @@ CLASS zcl_agc_repository_action IMPLEMENTATION.
 
 *   Commit files
     zcl_abapgit_services_git=>commit( io_repo   = zcl_agc_ui=>get_instance( )->get_repository( )
-                                      is_commit     = ls_commit_details
-                                      io_stage      = lo_staged_files
+                                      is_commit = ls_commit_details
+                                      io_stage  = lo_staged_files
                                     ).
 
   ENDMETHOD.
