@@ -6,7 +6,6 @@ INTERFACE zif_agc_ui
            objectname       TYPE trobj_name,
            path             TYPE string,
            bcset_id         TYPE string,
-           package          TYPE devclass,
            container_local  TYPE REF TO cl_bcfg_bcset_config_container,
            container_remote TYPE REF TO cl_bcfg_bcset_config_container,
            color            TYPE lvc_t_scol,
