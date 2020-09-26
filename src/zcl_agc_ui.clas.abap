@@ -272,6 +272,7 @@ CLASS zcl_agc_ui IMPLEMENTATION.
 
         DATA(lo_columns) = mo_customizing_output->get_columns( ).
         lo_columns->set_optimize( ).
+        lo_columns->set_cell_type_column( 'CELLTYPE' ).
 
         lo_column ?= lo_columns->get_column( 'OBJECTTYPE' ).
         lo_column->set_long_text( 'Type' ).
@@ -285,6 +286,10 @@ CLASS zcl_agc_ui IMPLEMENTATION.
         lo_column ?= lo_columns->get_column( 'BCSET_ID' ).
         lo_column->set_technical( ).
 
+        lo_column ?= lo_columns->get_column( 'IMPORT_LOG' ).
+        lo_column->set_icon( if_salv_c_bool_sap=>true ).
+        lo_column->set_long_text( 'Import Logs' ).
+
         lo_columns->set_color_column( 'COLOR' ).
 
         DATA(lo_selections) = mo_customizing_output->get_selections( ).
@@ -295,6 +300,7 @@ CLASS zcl_agc_ui IMPLEMENTATION.
         DATA(lo_event_handler) = NEW lcl_event_handler( ).
 
         SET HANDLER lo_event_handler->on_user_command FOR lo_events.
+        SET HANDLER lo_event_handler->on_link_click   FOR lo_events.
 
         mo_customizing_output->display( ).
 
