@@ -8,6 +8,9 @@ INTERFACE zif_agc_ui
            bcset_id         TYPE string,
            container_local  TYPE REF TO cl_bcfg_bcset_config_container,
            container_remote TYPE REF TO cl_bcfg_bcset_config_container,
+           container_result TYPE REF TO if_bcfg_result_apply,
+           import_log       TYPE icon_d,
+           celltype         TYPE salv_t_int4_column,
            color            TYPE lvc_t_scol,
          END OF ty_customizing_ui.
 

@@ -235,7 +235,12 @@ CLASS zcl_agc_repository_action IMPLEMENTATION.
       READ TABLE lt_requests[] ASSIGNING FIELD-SYMBOL(<ls_request>) INDEX 1.
 
 *     Apply
-      <ls_customizing_ui>-container_remote->if_bcfg_config_container~apply( iv_tp_cust = <ls_request>-h-trkorr ).
+      <ls_customizing_ui>-container_result = <ls_customizing_ui>-container_remote->if_bcfg_config_container~apply( iv_tp_cust = <ls_request>-h-trkorr ).
+
+      <ls_customizing_ui>-container_local = <ls_customizing_ui>-container_remote.
+      CLEAR <ls_customizing_ui>-color[].
+
+      APPEND <ls_customizing_ui> TO rt_imported_objects[].
 
     ENDLOOP.
 
