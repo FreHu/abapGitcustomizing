@@ -78,26 +78,64 @@ CLASS zcl_agc_helper IMPLEMENTATION.
                                                             ).
 
 *   Content in BC Set format data
-    DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprvals IN is_bcset_metadata-scprvals
+    DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprreca IN is_bcset_metadata-scprreca[] WHERE ( deleteflag IS INITIAL )
+                                                                               FOR ls_scprvals IN is_bcset_metadata-scprvals   WHERE (     tablename = ls_scprreca-tablename
+                                                                                                                                       AND recnumber = ls_scprreca-recnumber )
                                                                                   ( tablename = ls_scprvals-tablename
                                                                                     fieldname = ls_scprvals-fieldname
                                                                                     rec_id    = ls_scprvals-recnumber
                                                                                     value     = ls_scprvals-value ) ).
 
-*   Language dependent content in BC Set format
-    LOOP AT is_bcset_metadata-scprvall[] ASSIGNING FIELD-SYMBOL(<ls_scprvall>).
+    LOOP AT is_bcset_metadata-scprreca[] ASSIGNING FIELD-SYMBOL(<ls_scprreca>)
+                                         WHERE deleteflag IS INITIAL.
 
-      INSERT VALUE #( tablename = <ls_scprvall>-tablename
-                      fieldname = <ls_scprvall>-fieldname
-                      rec_id    = <ls_scprvall>-recnumber
-                      langu     = <ls_scprvall>-langu
-                      value     = <ls_scprvall>-value )
-      INTO TABLE lt_field_values[].
+*     Language dependent content in BC Set format
+      LOOP AT is_bcset_metadata-scprvall[] ASSIGNING FIELD-SYMBOL(<ls_scprvall>)
+                                           WHERE recnumber = <ls_scprreca>-recnumber.
+
+        INSERT VALUE #( tablename = <ls_scprvall>-tablename
+                        fieldname = <ls_scprvall>-fieldname
+                        rec_id    = <ls_scprvall>-recnumber
+                        langu     = <ls_scprvall>-langu
+                        value     = <ls_scprvall>-value )
+        INTO TABLE lt_field_values[].
+
+      ENDLOOP.
 
     ENDLOOP.
 
-*   Add data from remote file to configuration container
+*   Add data
     ro_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
+
+*   Deleted content in BC Set format data
+    lt_field_values[] = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprreca IN is_bcset_metadata-scprreca[] WHERE ( deleteflag = 'L' )
+                                                                           FOR ls_scprvals IN is_bcset_metadata-scprvals   WHERE (     tablename = ls_scprreca-tablename
+                                                                                                                                   AND recnumber = ls_scprreca-recnumber )
+                                                                                  ( tablename = ls_scprvals-tablename
+                                                                                    fieldname = ls_scprvals-fieldname
+                                                                                    rec_id    = ls_scprvals-recnumber
+                                                                                    value     = ls_scprvals-value ) ).
+
+    LOOP AT is_bcset_metadata-scprreca[] ASSIGNING <ls_scprreca>
+                                         WHERE deleteflag = 'L'.
+
+*     Language dependent content in BC Set format
+      LOOP AT is_bcset_metadata-scprvall[] ASSIGNING <ls_scprvall>
+                                           WHERE recnumber = <ls_scprreca>-recnumber.
+
+        INSERT VALUE #( tablename = <ls_scprvall>-tablename
+                        fieldname = <ls_scprvall>-fieldname
+                        rec_id    = <ls_scprvall>-recnumber
+                        langu     = <ls_scprvall>-langu
+                        value     = <ls_scprvall>-value )
+        INTO TABLE lt_field_values[].
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+*   Add deleted data
+    ro_container->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
 
   ENDMETHOD.
 

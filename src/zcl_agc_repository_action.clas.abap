@@ -69,6 +69,8 @@ CLASS zcl_agc_repository_action IMPLEMENTATION.
                         ig_data = ls_bcset_metadata
                       ).
 
+      CLEAR: ls_bcset_metadata.
+
       DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type = 'SCP1'
                                                               obj_name = <ls_customizing_ui>-bcset_id
                                                               devclass = zcl_agc_ui=>get_instance( )->get_repository( )->get_package( )
