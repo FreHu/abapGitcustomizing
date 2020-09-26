@@ -243,6 +243,8 @@ CLASS zcl_agc_ui IMPLEMENTATION.
                       color                  = lt_color[]
                     ) TO mt_customizing_ui[].
 
+      CLEAR: lt_color[].
+
     ENDLOOP.
 
   ENDMETHOD.
