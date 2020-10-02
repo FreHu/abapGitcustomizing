@@ -122,7 +122,7 @@ CLASS lcl_event_handler IMPLEMENTATION.
         log_not_active       = 1                " Log not active -> no reset
         wrong_identification = 2                " Identification not correct (-> long text)
         OTHERS               = 3.
-    IF sy-subrc = 0.
+    IF sy-subrc NE 0.
       MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
       WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
