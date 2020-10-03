@@ -185,12 +185,12 @@ CLASS zcl_agc_request_handler IMPLEMENTATION.
           OTHERS              = 2.
       CHECK sy-subrc = 0.
 
-      DATA(lv_bcset_id) = lv_tr_object_type && '_' && <ls_mapping>-objectname.
+      DATA(lv_bcset_id) = to_lower( lv_tr_object_type && '_' && <ls_mapping>-objectname ).
 
       APPEND VALUE #( objecttype             = lv_tr_object_type
                       objectname             = <ls_mapping>-objectname
                       path                   = '/customizing/' && lv_bcset_id && '.scp1.xml'
-                      bcset_id               = lv_bcset_id
+                      bcset_id               = to_upper( lv_bcset_id )
                       container_local        = lo_container_local
                       color                  = VALUE #( ( color-col = 6 color-int = 1 color-inv = 0 ) )
                     ) TO rt_customizing_ui[].
