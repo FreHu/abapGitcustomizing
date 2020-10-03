@@ -22,6 +22,7 @@ ZAGC
 - Customizing content of type TABU, VDAT and CDAT
 - Stage of selected content to a repository. Also it is possible to Pull the content i.e. customizing content is deployed to corresponding table/view/viewcluster
 - Deleted content i.e. Stage/Pull of deleted content is possible
+- Comparison between repo content and local content. IF deifference exists, then row is highlighted with color 'Red'
 
 # Limitation
 - Repository must be created using abapGit
