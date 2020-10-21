@@ -30,28 +30,28 @@ CLASS zcl_agc_helper IMPLEMENTATION.
 
   METHOD create_container.
 
-*   Declaration of local internal table
+    " Declaration of local internal table
     DATA: lt_objects TYPE scp1_bcs_objects.
 
     DATA(lt_bcset_language_values) = is_bcset_metadata-scprvall[].
 
     SORT lt_bcset_language_values[] BY langu.
 
-*   Delete duplicate languages
+    " Delete duplicate languages
     DELETE ADJACENT DUPLICATES FROM lt_bcset_language_values[]
     COMPARING langu.
 
-    DATA(lt_languages) = VALUE if_bcfg_config_container=>ty_t_languages( FOR ls_bcset_language_value IN lt_bcset_language_values[]
-                                                                             ( ls_bcset_language_value-langu ) ).
+    DATA(lt_languages) = VALUE if_bcfg_config_container=>ty_t_languages(
+      FOR ls_bcset_language_value IN lt_bcset_language_values[]
+      ( ls_bcset_language_value-langu ) ).
+
     IF lt_languages[] IS INITIAL.
-
       INSERT sy-langu INTO TABLE lt_languages[].
-
     ENDIF.
 
     DATA(lv_bcset_id) = is_bcset_metadata-scprreca[ 1 ]-id.
 
-*   Extract objects
+    " Extract objects
     CALL FUNCTION 'SCPR_SV_GET_OBJECTS_IN_BCSET'
       EXPORTING
         bcset_id = lv_bcset_id
@@ -68,28 +68,36 @@ CLASS zcl_agc_helper IMPLEMENTATION.
     DATA(lv_tablename) = SWITCH #( <ls_object>-objecttype WHEN 'U' THEN <ls_object>-objectname
                                                           ELSE space ).
 
-*   Create mapping
-    DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info( ( objectname = <ls_object>-objectname objecttype = lv_objecttype activity = <ls_object>-activity tablename = lv_tablename ) ).
+    " Create mapping
+    DATA(lt_mappings) = VALUE if_bcfg_config_container=>ty_t_mapping_info(
+      ( objectname = <ls_object>-objectname
+        objecttype = lv_objecttype
+        activity = <ls_object>-activity
+        tablename = lv_tablename ) ).
 
-*   Create configuration container for remote file
-    ro_container ?= cl_bcfg_config_manager=>create_container( io_container_type  = cl_bcfg_enum_container_type=>classic
-                                                              it_langus          = lt_languages[]
-                                                              it_object_mappings = lt_mappings[]
-                                                            ).
+    " Create configuration container for remote file
+    ro_container ?= cl_bcfg_config_manager=>create_container(
+      io_container_type  = cl_bcfg_enum_container_type=>classic
+      it_langus          = lt_languages[]
+      it_object_mappings = lt_mappings[]
+    ).
 
-*   Content in BC Set format data
-    DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprreca IN is_bcset_metadata-scprreca[] WHERE ( deleteflag IS INITIAL )
-                                                                               FOR ls_scprvals IN is_bcset_metadata-scprvals   WHERE (     tablename = ls_scprreca-tablename
-                                                                                                                                       AND recnumber = ls_scprreca-recnumber )
-                                                                                  ( tablename = ls_scprvals-tablename
-                                                                                    fieldname = ls_scprvals-fieldname
-                                                                                    rec_id    = ls_scprvals-recnumber
-                                                                                    value     = ls_scprvals-value ) ).
+    " Content in BC Set format data
+    DATA(lt_field_values) = VALUE if_bcfg_config_container=>ty_t_field_values(
+      FOR ls_scprreca IN is_bcset_metadata-scprreca[]
+        WHERE ( deleteflag IS INITIAL )
+      FOR ls_scprvals IN is_bcset_metadata-scprvals
+        WHERE ( tablename = ls_scprreca-tablename AND recnumber = ls_scprreca-recnumber )
+
+      ( tablename = ls_scprvals-tablename
+        fieldname = ls_scprvals-fieldname
+        rec_id    = ls_scprvals-recnumber
+        value     = ls_scprvals-value ) ).
 
     LOOP AT is_bcset_metadata-scprreca[] ASSIGNING FIELD-SYMBOL(<ls_scprreca>)
                                          WHERE deleteflag IS INITIAL.
 
-*     Language dependent content in BC Set format
+      " Language dependent content in BC Set format
       LOOP AT is_bcset_metadata-scprvall[] ASSIGNING FIELD-SYMBOL(<ls_scprvall>)
                                            WHERE recnumber = <ls_scprreca>-recnumber.
 
@@ -104,22 +112,25 @@ CLASS zcl_agc_helper IMPLEMENTATION.
 
     ENDLOOP.
 
-*   Add data
+    " Add data
     ro_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
 
-*   Deleted content in BC Set format data
-    lt_field_values[] = VALUE if_bcfg_config_container=>ty_t_field_values( FOR ls_scprreca IN is_bcset_metadata-scprreca[] WHERE ( deleteflag = 'L' )
-                                                                           FOR ls_scprvals IN is_bcset_metadata-scprvals   WHERE (     tablename = ls_scprreca-tablename
-                                                                                                                                   AND recnumber = ls_scprreca-recnumber )
-                                                                                  ( tablename = ls_scprvals-tablename
-                                                                                    fieldname = ls_scprvals-fieldname
-                                                                                    rec_id    = ls_scprvals-recnumber
-                                                                                    value     = ls_scprvals-value ) ).
+    " Deleted content in BC Set format data
+    lt_field_values[] = VALUE if_bcfg_config_container=>ty_t_field_values(
+      FOR ls_scprreca IN is_bcset_metadata-scprreca[]
+        WHERE ( deleteflag = 'L' )
+      FOR ls_scprvals IN is_bcset_metadata-scprvals
+        WHERE ( tablename = ls_scprreca-tablename AND recnumber = ls_scprreca-recnumber )
+
+      ( tablename = ls_scprvals-tablename
+        fieldname = ls_scprvals-fieldname
+        rec_id    = ls_scprvals-recnumber
+        value     = ls_scprvals-value ) ).
 
     LOOP AT is_bcset_metadata-scprreca[] ASSIGNING <ls_scprreca>
                                          WHERE deleteflag = 'L'.
 
-*     Language dependent content in BC Set format
+      " Language dependent content in BC Set format
       LOOP AT is_bcset_metadata-scprvall[] ASSIGNING <ls_scprvall>
                                            WHERE recnumber = <ls_scprreca>-recnumber.
 
@@ -134,8 +145,12 @@ CLASS zcl_agc_helper IMPLEMENTATION.
 
     ENDLOOP.
 
-*   Add deleted data
-    ro_container->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
+    TRY.
+        " Add deleted data
+        ro_container->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
+      CATCH cx_root INTO DATA(cx).
+        MESSAGE cx->get_text( ) TYPE 'E'.
+    ENDTRY.
 
   ENDMETHOD.
 
