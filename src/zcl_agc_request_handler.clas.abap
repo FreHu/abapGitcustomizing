@@ -125,77 +125,81 @@ CLASS zcl_agc_request_handler IMPLEMENTATION.
 
   METHOD zif_agc_request_handler~get_data.
 
-    DATA: lt_scprvals TYPE scprvalstab.
+    TRY.
+        DATA: lt_scprvals TYPE scprvalstab.
 
 *   Declaration of local workarea
-    DATA: ls_bcset_metadata TYPE zcl_agc_helper=>ty_bcset_metadata.
+        DATA: ls_bcset_metadata TYPE zcl_agc_helper=>ty_bcset_metadata.
 
 *   Declaration of local variable
-    DATA: lv_tr_object_type TYPE e071-object.
+        DATA: lv_tr_object_type TYPE e071-object.
 
 *   Convert request data to BC Set format
-    convert_to_bcset_format(
-      IMPORTING
-        et_record_attributes = DATA(lt_record_attributes)
-        et_values            = DATA(lt_all_values)
-        et_language_values   = DATA(lt_language_all_values)
-    ).
+        convert_to_bcset_format(
+          IMPORTING
+            et_record_attributes = DATA(lt_record_attributes)
+            et_values            = DATA(lt_all_values)
+            et_language_values   = DATA(lt_language_all_values)
+        ).
 
 *   Process table/customizing object
-    LOOP AT lt_record_attributes[] ASSIGNING FIELD-SYMBOL(<ls_record_attribute>)
-                                   GROUP BY ( tablename  = <ls_record_attribute>-tablename
-                                              objectname = <ls_record_attribute>-objectname
-                                              objecttype = <ls_record_attribute>-objecttype
-                                              clustname  = <ls_record_attribute>-clustname
-                                            ) ASSIGNING FIELD-SYMBOL(<ls_recaattr_group>).
+        LOOP AT lt_record_attributes[] ASSIGNING FIELD-SYMBOL(<ls_record_attribute>)
+                                       GROUP BY ( tablename  = <ls_record_attribute>-tablename
+                                                  objectname = <ls_record_attribute>-objectname
+                                                  objecttype = <ls_record_attribute>-objecttype
+                                                  clustname  = <ls_record_attribute>-clustname
+                                                ) ASSIGNING FIELD-SYMBOL(<ls_recaattr_group>).
 
 *     Get BC Set records attributes
-      ls_bcset_metadata-scprreca[] = VALUE #( FOR ls_recaattr IN GROUP <ls_recaattr_group> ( ls_recaattr ) ).
+          ls_bcset_metadata-scprreca[] = VALUE #( FOR ls_recaattr IN GROUP <ls_recaattr_group> ( ls_recaattr ) ).
 
 *     Get the relevant customizing content
-      ls_bcset_metadata-scprvals[] = VALUE #( FOR ls_recaattr_tmp IN ls_bcset_metadata-scprreca[]
-                                              FOR ls_values       IN lt_all_values[] WHERE (     tablename = ls_recaattr_tmp-tablename
-                                                                                             AND recnumber = ls_recaattr_tmp-recnumber )
-                                              ( ls_values ) ).
+          ls_bcset_metadata-scprvals[] = VALUE #( FOR ls_recaattr_tmp IN ls_bcset_metadata-scprreca[]
+                                                  FOR ls_values       IN lt_all_values[] WHERE (     tablename = ls_recaattr_tmp-tablename
+                                                                                                 AND recnumber = ls_recaattr_tmp-recnumber )
+                                                  ( ls_values ) ).
 
 *     Get the relevant language content
-      ls_bcset_metadata-scprvall[] = VALUE #( FOR ls_recaattr_tmp IN ls_bcset_metadata-scprreca[]
-                                              FOR ls_valuesl      IN lt_language_all_values[] WHERE (     tablename = ls_recaattr_tmp-tablename
-                                                                                                      AND recnumber = ls_recaattr_tmp-recnumber )
-                                              ( ls_valuesl ) ).
+          ls_bcset_metadata-scprvall[] = VALUE #( FOR ls_recaattr_tmp IN ls_bcset_metadata-scprreca[]
+                                                  FOR ls_valuesl      IN lt_language_all_values[] WHERE (     tablename = ls_recaattr_tmp-tablename
+                                                                                                          AND recnumber = ls_recaattr_tmp-recnumber )
+                                                  ( ls_valuesl ) ).
 
 *     Create container
-      DATA(lo_container_local) = zcl_agc_helper=>create_container( ls_bcset_metadata ).
+          DATA(lo_container_local) = zcl_agc_helper=>create_container( ls_bcset_metadata ).
 
 *     Get mappings
-      DATA(lt_mappings) = lo_container_local->if_bcfg_config_container~get_mappings( ).
+          DATA(lt_mappings) = lo_container_local->if_bcfg_config_container~get_mappings( ).
 
 *     Get object
-      READ TABLE lt_mappings[] ASSIGNING FIELD-SYMBOL(<ls_mapping>) INDEX 1.
+          READ TABLE lt_mappings[] ASSIGNING FIELD-SYMBOL(<ls_mapping>) INDEX 1.
 
 *     Get transport object type
-      CALL FUNCTION 'CTO_OBJECT_GET_TROBJECT'
-        EXPORTING
-          iv_objectname       = <ls_mapping>-objectname " Object Name
-          iv_objecttype       = <ls_mapping>-objecttype " Object Type
-        IMPORTING
-          ev_object           = lv_tr_object_type
-        EXCEPTIONS
-          no_transport_object = 1
-          OTHERS              = 2.
-      CHECK sy-subrc = 0.
+          CALL FUNCTION 'CTO_OBJECT_GET_TROBJECT'
+            EXPORTING
+              iv_objectname       = <ls_mapping>-objectname " Object Name
+              iv_objecttype       = <ls_mapping>-objecttype " Object Type
+            IMPORTING
+              ev_object           = lv_tr_object_type
+            EXCEPTIONS
+              no_transport_object = 1
+              OTHERS              = 2.
+          CHECK sy-subrc = 0.
 
-      DATA(lv_bcset_id) = to_lower( lv_tr_object_type && '_' && <ls_mapping>-objectname ).
+          DATA(lv_bcset_id) = to_lower( lv_tr_object_type && '_' && <ls_mapping>-objectname ).
 
-      APPEND VALUE #( objecttype             = lv_tr_object_type
-                      objectname             = <ls_mapping>-objectname
-                      path                   = '/customizing/' && lv_bcset_id && '.scp1.xml'
-                      bcset_id               = to_upper( lv_bcset_id )
-                      container_local        = lo_container_local
-                      color                  = VALUE #( ( color-col = 6 color-int = 1 color-inv = 0 ) )
-                    ) TO rt_customizing_ui[].
+          APPEND VALUE #( objecttype             = lv_tr_object_type
+                          objectname             = <ls_mapping>-objectname
+                          path                   = '/customizing/' && lv_bcset_id && '.scp1.xml'
+                          bcset_id               = to_upper( lv_bcset_id )
+                          container_local        = lo_container_local
+                          color                  = VALUE #( ( color-col = 6 color-int = 1 color-inv = 0 ) )
+                        ) TO rt_customizing_ui[].
 
-    ENDLOOP.
+        ENDLOOP.
+      CATCH cx_root INTO DATA(cx).
+        MESSAGE cx->get_text( ) TYPE 'E'.
+    ENDTRY.
 
   ENDMETHOD.
 
