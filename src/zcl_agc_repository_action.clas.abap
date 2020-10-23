@@ -32,75 +32,79 @@ CLASS zcl_agc_repository_action IMPLEMENTATION.
 
   METHOD zif_agc_repository_action~push.
 
+    TRY.
 *   Declaration of local workarea
-    DATA: ls_bcset_metadata TYPE zcl_agc_helper=>ty_bcset_metadata.
+        DATA: ls_bcset_metadata TYPE zcl_agc_helper=>ty_bcset_metadata.
 
 *   Get instance
-    DATA(lo_customizing_ui) = zcl_agc_ui=>get_instance( ).
+        DATA(lo_customizing_ui) = zcl_agc_ui=>get_instance( ).
 
-    DATA(lt_customizing_ui) = lo_customizing_ui->get_selected_customizing( ).
+        DATA(lt_customizing_ui) = lo_customizing_ui->get_selected_customizing( ).
 
-    DATA(lo_staged_files) = NEW zcl_abapgit_stage( ).
+        DATA(lo_staged_files) = NEW zcl_abapgit_stage( ).
 
-    LOOP AT lt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>).
+        LOOP AT lt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>).
 
 *     Convert configuration container data to BC Set metadata format
-      <ls_customizing_ui>-container_local->if_bcfg_has_data_manager~get_data_manager( )->convert_to_bcset(
-        EXPORTING
-          iv_id   = <ls_customizing_ui>-container_local->if_bcfg_config_container~get_id( )
-        CHANGING
-          ct_reca = ls_bcset_metadata-scprreca[]
-          ct_vals = ls_bcset_metadata-scprvals[]
-          ct_vall = ls_bcset_metadata-scprvall[]
-      ).
+          <ls_customizing_ui>-container_local->if_bcfg_has_data_manager~get_data_manager( )->convert_to_bcset(
+            EXPORTING
+              iv_id   = <ls_customizing_ui>-container_local->if_bcfg_config_container~get_id( )
+            CHANGING
+              ct_reca = ls_bcset_metadata-scprreca[]
+              ct_vals = ls_bcset_metadata-scprvals[]
+              ct_vall = ls_bcset_metadata-scprvall[]
+          ).
 
 *     Adjust BC Set metadata
-      change_bcset_metadata(
-        EXPORTING
-          iv_bcset_id       = CONV #( <ls_customizing_ui>-bcset_id )
-        CHANGING
-          cs_bcset_metadata = ls_bcset_metadata
-      ).
+          change_bcset_metadata(
+            EXPORTING
+              iv_bcset_id       = CONV #( <ls_customizing_ui>-bcset_id )
+            CHANGING
+              cs_bcset_metadata = ls_bcset_metadata
+          ).
 
 *     Instantiate XML object
-      DATA(lo_xml_data) = NEW zcl_abapgit_xml_output( ).
+          DATA(lo_xml_data) = NEW zcl_abapgit_xml_output( ).
 
-      lo_xml_data->add( iv_name = 'SCP1'
-                        ig_data = ls_bcset_metadata
-                      ).
+          lo_xml_data->add( iv_name = 'SCP1'
+                            ig_data = ls_bcset_metadata
+                          ).
 
-      CLEAR: ls_bcset_metadata.
+          CLEAR: ls_bcset_metadata.
 
-      DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type = 'SCP1'
-                                                              obj_name = <ls_customizing_ui>-bcset_id
-                                                              devclass = zcl_agc_ui=>get_instance( )->get_repository( )->get_package( )
-                                                            ).
+          DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item( obj_type = 'SCP1'
+                                                                  obj_name = <ls_customizing_ui>-bcset_id
+                                                                  devclass = zcl_agc_ui=>get_instance( )->get_repository( )->get_package( )
+                                                                ).
 
-      DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = ls_item ).
+          DATA(lo_object_files) = NEW zcl_abapgit_objects_files( is_item = ls_item ).
 
 *     Add xml data to file
-      lo_object_files->add_xml( lo_xml_data ).
+          lo_object_files->add_xml( lo_xml_data ).
 
-      LOOP AT lo_object_files->get_files( ) ASSIGNING FIELD-SYMBOL(<ls_file>).
+          LOOP AT lo_object_files->get_files( ) ASSIGNING FIELD-SYMBOL(<ls_file>).
 
 *       Add files to stage
-        lo_staged_files->add( iv_path     = '/customizing/'
-                              iv_filename = <ls_file>-filename
-                              iv_data     = <ls_file>-data
-                            ).
+            lo_staged_files->add( iv_path     = '/customizing/'
+                                  iv_filename = <ls_file>-filename
+                                  iv_data     = <ls_file>-data
+                                ).
 
-      ENDLOOP.
+          ENDLOOP.
 
-    ENDLOOP.
+        ENDLOOP.
 
 *   Get committer details
-    DATA(ls_commit_details) = get_committer_details( ).
+        DATA(ls_commit_details) = get_committer_details( ).
 
 *   Commit files
-    zcl_abapgit_services_git=>commit( io_repo   = zcl_agc_ui=>get_instance( )->get_repository( )
-                                      is_commit = ls_commit_details
-                                      io_stage  = lo_staged_files
-                                    ).
+        zcl_abapgit_services_git=>commit( io_repo   = zcl_agc_ui=>get_instance( )->get_repository( )
+                                          is_commit = ls_commit_details
+                                          io_stage  = lo_staged_files
+                                        ).
+      CATCH cx_root INTO DATA(cx).
+        MESSAGE cx->get_text( ) TYPE 'E'.
+    ENDTRY.
 
   ENDMETHOD.
 

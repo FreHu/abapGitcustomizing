@@ -92,7 +92,11 @@ CLASS zcl_agc_ui IMPLEMENTATION.
     DATA: lo_column TYPE REF TO cl_salv_column_table.
 
 *   Create customizing content list
-    create_customizing_list( ).
+    TRY.
+        create_customizing_list( ).
+      CATCH cx_root INTO DATA(cx).
+        MESSAGE |Error creating cusotmizing: { cx->get_text( ) }| TYPE 'E'.
+    ENDTRY.
 
     display_output( ).
 
