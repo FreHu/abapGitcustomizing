@@ -183,6 +183,9 @@ CLASS zcl_agc_ui IMPLEMENTATION.
                       bcset_id               = ls_bcset_metadata-scprattr-id
                       container_local        = lo_container_local
                       container_remote       = lo_container_remote
+                      difference             = SWITCH #( lines( lt_color[] ) WHEN 0 THEN icon_equal_green
+                                                                                    ELSE icon_not_equal_red )
+                      celltype               = VALUE #( ( columnname = 'DIFFERENCE' value = if_salv_c_cell_type=>hotspot ) )
                       color                  = lt_color[]
                     ) TO mt_customizing_ui[].
 
@@ -234,6 +237,10 @@ CLASS zcl_agc_ui IMPLEMENTATION.
         lo_column ?= lo_columns->get_column( 'IMPORT_LOG' ).
         lo_column->set_icon( if_salv_c_bool_sap=>true ).
         lo_column->set_long_text( 'Import Logs' ).
+
+        lo_column ?= lo_columns->get_column( 'DIFFERENCE' ).
+        lo_column->set_icon( if_salv_c_bool_sap=>true ).
+        lo_column->set_long_text( 'Display Differences' ).
 
         lo_columns->set_color_column( 'COLOR' ).
 
