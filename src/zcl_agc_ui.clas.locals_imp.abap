@@ -9,6 +9,11 @@ CLASS lcl_event_handler DEFINITION FINAL.
 
     METHODS on_link_click FOR EVENT link_click OF cl_salv_events_table
       IMPORTING row column.
+  PRIVATE SECTION.
+
+    METHODS display_import_logs
+      IMPORTING
+        iv_row TYPE i.
 
 ENDCLASS.
 
@@ -55,11 +60,20 @@ CLASS lcl_event_handler IMPLEMENTATION.
 
       WHEN 'PUSH'.
 
+        lt_customizing_ui[] = zcl_agc_ui=>get_instance( )->get_selected_customizing( ).
+
+        IF lt_customizing_ui[] IS INITIAL.
+
+          MESSAGE s398(00) WITH 'Select a customizing to stage/pull'
+          DISPLAY LIKE 'E'.
+
+          RETURN.
+
+        ENDIF.
+
         DATA(lo_repository_action) = zcl_agc_repository_action=>get_instance( ).
 
         lo_repository_action->push( ).
-
-        lt_customizing_ui[] = zcl_agc_ui=>get_instance( )->get_selected_customizing( ).
 
         LOOP AT lt_customizing_ui[] ASSIGNING <ls_customizing_ui_new>.
 
@@ -76,6 +90,15 @@ CLASS lcl_event_handler IMPLEMENTATION.
         zcl_agc_ui=>mo_abapgit_customizing_ui->mo_customizing_output->refresh( ).
 
       WHEN 'PULL'.
+
+        IF zcl_agc_ui=>get_instance( )->get_selected_customizing( ) IS INITIAL.
+
+          MESSAGE s398(00) WITH 'Select a customizing to stage/pull'
+          DISPLAY LIKE 'E'.
+
+          RETURN.
+
+        ENDIF.
 
         lo_repository_action = zcl_agc_repository_action=>get_instance( ).
 
@@ -116,6 +139,72 @@ CLASS lcl_event_handler IMPLEMENTATION.
 
   METHOD on_link_click.
 
+    CASE column.
+
+      WHEN 'IMPORT_LOG'.
+
+        display_import_logs( row ).
+
+      WHEN 'DIFFERENCE'.
+
+        DATA: lo_data_remote         TYPE REF TO data,
+              lo_data_remote_deleted TYPE REF TO data,
+              lo_data_local          TYPE REF TO data,
+              lo_data_deleted        TYPE REF TO data,
+              lo_data_inserted       TYPE REF TO data,
+              lo_data_updated        TYPE REF TO data.
+
+        DATA: lv_no_change TYPE flag.
+
+        FIELD-SYMBOLS: <lt_data_remote>         TYPE STANDARD TABLE,
+                       <lt_data_remote_deleted> TYPE STANDARD TABLE,
+                       <lt_data_local>          TYPE STANDARD TABLE,
+                       <lt_data_deleted>        TYPE STANDARD TABLE,
+                       <lt_data_inserted>       TYPE STANDARD TABLE,
+                       <lt_data_updated>        TYPE STANDARD TABLE.
+
+        READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>)
+                                                                              INDEX row.
+
+        CREATE DATA lo_data_remote TYPE STANDARD TABLE OF (<ls_customizing_ui>-objectname).
+        ASSIGN lo_data_remote->* TO <lt_data_remote>.
+
+        <ls_customizing_ui>-container_remote->if_bcfg_config_container~get_lines(
+          EXPORTING
+            iv_langu = sy-langu
+          IMPORTING
+            et_lines = <lt_data_remote>[]
+        ).
+
+        CREATE DATA lo_data_remote_deleted TYPE STANDARD TABLE OF (<ls_customizing_ui>-objectname).
+        ASSIGN lo_data_remote_deleted->* TO <lt_data_remote_deleted>.
+
+        <ls_customizing_ui>-container_remote->if_bcfg_config_container~get_deletions(
+          IMPORTING
+            et_lines = <lt_data_remote_deleted>[]
+        ).
+
+*        APPEND LINES OF <lt_data_remote_deleted>[] TO <lt_data_remote>[].
+
+        CREATE DATA lo_data_local TYPE STANDARD TABLE OF (<ls_customizing_ui>-objectname).
+        ASSIGN lo_data_local->* TO <lt_data_local>.
+
+        <ls_customizing_ui>-container_local->if_bcfg_config_container~get_lines(
+          EXPORTING
+            iv_langu = sy-langu
+          IMPORTING
+            et_lines = <lt_data_local>[]
+        ).
+
+        DATA(lo_config_object) = <ls_customizing_ui>-container_remote->if_bcfg_has_data_manager~get_data_manager( )->get_config_object( CONV #( <ls_customizing_ui>-objectname ) ).
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD display_import_logs.
+
 *   Initialize message
     CALL FUNCTION 'MESSAGES_INITIALIZE'
       EXCEPTIONS
@@ -128,7 +217,7 @@ CLASS lcl_event_handler IMPLEMENTATION.
     ENDIF.
 
     READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>)
-                                                                          INDEX row.
+                                                                          INDEX iv_row.
 
     LOOP AT <ls_customizing_ui>-container_result->get_log_messages( ) ASSIGNING FIELD-SYMBOL(<ls_return>).
 
