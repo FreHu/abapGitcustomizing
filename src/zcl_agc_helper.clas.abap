@@ -1,11 +1,12 @@
-CLASS zcl_agc_helper DEFINITION
-  PUBLIC
-  FINAL
-  CREATE PUBLIC .
+class ZCL_AGC_HELPER definition
+  public
+  final
+  create public .
 
-  PUBLIC SECTION.
+public section.
 
-    TYPES: BEGIN OF ty_bcset_metadata,
+  types:
+    BEGIN OF ty_bcset_metadata,
              scprattr TYPE scprattr,
              scprtext TYPE STANDARD TABLE OF scprtext WITH DEFAULT KEY,
              scprvals TYPE STANDARD TABLE OF scprvals WITH DEFAULT KEY,
@@ -15,18 +16,20 @@ CLASS zcl_agc_helper DEFINITION
              subprofs TYPE STANDARD TABLE OF scprpprl WITH DEFAULT KEY,
            END OF ty_bcset_metadata .
 
-    CLASS-METHODS create_container
-      IMPORTING
-                is_bcset_metadata   TYPE ty_bcset_metadata
-      RETURNING VALUE(ro_container) TYPE REF TO cl_bcfg_bcset_config_container.
-
+  class-methods CREATE_CONTAINER
+    importing
+      !IV_IS_IN_EXTERNAL_FORMAT type ABAP_BOOL default ABAP_FALSE
+      !IS_BCSET_METADATA type TY_BCSET_METADATA
+    returning
+      value(RO_CONTAINER) type ref to CL_BCFG_BCSET_CONFIG_CONTAINER .
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS zcl_agc_helper IMPLEMENTATION.
+CLASS ZCL_AGC_HELPER IMPLEMENTATION.
+
 
   METHOD create_container.
 
@@ -112,8 +115,18 @@ CLASS zcl_agc_helper IMPLEMENTATION.
 
     ENDLOOP.
 
-    " Add data
-    ro_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
+    IF iv_is_in_external_format = abap_false.
+
+      " Add data
+      ro_container->if_bcfg_config_container~add_lines_by_fields( lt_field_values[] ).
+
+    ELSE.
+
+      DATA(lo_decorator) = cl_bcfg_decorator_factory=>create_bcset_struct_decorator( ro_container ).
+
+      lo_decorator->add_lines_by_fields( lt_field_values[] ).
+
+    ENDIF.
 
     " Deleted content in BC Set format data
     lt_field_values[] = VALUE if_bcfg_config_container=>ty_t_field_values(
@@ -146,12 +159,21 @@ CLASS zcl_agc_helper IMPLEMENTATION.
     ENDLOOP.
 
     TRY.
-        " Add deleted data
-        ro_container->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
+
+        IF iv_is_in_external_format = abap_false.
+
+          " Add deleted data
+          ro_container->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
+
+        ELSE.
+
+          lo_decorator->add_deletions_by_fields( lt_field_values[] ).
+
+        ENDIF.
+
       CATCH cx_root INTO DATA(cx).
         MESSAGE cx->get_text( ) TYPE 'E'.
     ENDTRY.
 
   ENDMETHOD.
-
 ENDCLASS.

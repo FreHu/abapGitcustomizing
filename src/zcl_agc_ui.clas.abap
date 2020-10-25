@@ -61,46 +61,70 @@ ENDCLASS.
 
 
 
-CLASS zcl_agc_ui IMPLEMENTATION.
+CLASS ZCL_AGC_UI IMPLEMENTATION.
 
-  METHOD get_instance.
 
-    IF mo_abapgit_customizing_ui IS NOT BOUND.
+  METHOD compare_container.
 
-      mo_abapgit_customizing_ui = NEW #( ).
+*   Get deletions as field values
+    io_container_remote->if_bcfg_config_container~get_deletions_as_fields(
+      IMPORTING
+        et_fields = DATA(lt_field_values)
+    ).
+
+*   Remove deletions from containers
+    io_container_remote->if_bcfg_config_container~remove_deletions_by_fields( lt_field_values[] ).
+    io_container_local->if_bcfg_config_container~remove_deletions_by_fields( lt_field_values[] ).
+
+*   Extract key metadata
+    DATA(lo_key_container) = io_container_local->if_bcfg_config_container~extract_key_container( ).
+
+*   Remove the data from container
+    io_container_local->if_bcfg_config_container~remove_all( ).
+
+*   Read data
+    io_container_local->if_bcfg_config_container~add_current_config( lo_key_container ).
+
+*   Compare containers which do not have deletions
+    IF io_container_local->if_bcfg_config_container~equals( io_container_remote ) = abap_false.
+
+      rt_color  = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
+
+
+    ELSEIF lt_field_values[] IS NOT INITIAL.
+
+*     Remove the data from container
+      io_container_local->if_bcfg_config_container~remove_all( ).
+
+*     Add only deletions to the container
+      io_container_local->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
+
+*     Extract key metadata
+      lo_key_container = io_container_local->if_bcfg_config_container~extract_key_container( ).
+
+*     Read data
+      io_container_local->if_bcfg_config_container~add_current_config( lo_key_container ).
+
+*     Get found lines for deleted keys
+      io_container_local->if_bcfg_config_container~get_lines_as_fields(
+        IMPORTING
+          et_fields = DATA(lt_field_values_local) " filled with field values of ALL tables in the container
+      ).
+
+*     There are lines found for deleted keys
+      IF lt_field_values_local[] IS NOT INITIAL.
+
+        rt_color[] = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
+
+      ENDIF.
 
     ENDIF.
 
-    ro_customizing_ui ?= mo_abapgit_customizing_ui.
+*   Add the deleted key once again to the container
+    io_container_remote->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
 
   ENDMETHOD.
 
-  METHOD zif_agc_ui~display.
-
-*   Get instance
-    DATA(lo_repository_service) = zcl_abapgit_repo_srv=>get_instance( ).
-
-    TRY.
-
-        mo_repository ?= lo_repository_service->get( iv_repository_key ).
-
-      CATCH zcx_abapgit_exception ##NO_HANDLER.
-
-    ENDTRY.
-
-*   Declaration of local object reference
-    DATA: lo_column TYPE REF TO cl_salv_column_table.
-
-*   Create customizing content list
-    TRY.
-        create_customizing_list( ).
-      CATCH cx_root INTO DATA(cx).
-        MESSAGE |Error creating cusotmizing: { cx->get_text( ) }| TYPE 'E'.
-    ENDTRY.
-
-    display_output( ).
-
-  ENDMETHOD.
 
   METHOD create_customizing_list.
 
@@ -137,10 +161,14 @@ CLASS zcl_agc_ui IMPLEMENTATION.
       ).
 
 *     Create configuration container for remote file
-      DATA(lo_container_remote) = zcl_agc_helper=>create_container( is_bcset_metadata = ls_bcset_metadata ).
+      DATA(lo_container_remote) = zcl_agc_helper=>create_container( iv_is_in_external_format = abap_true
+                                                                    is_bcset_metadata        = ls_bcset_metadata
+                                                                  ).
 
 *     Create configuration container for local file
-      DATA(lo_container_local) = zcl_agc_helper=>create_container( is_bcset_metadata = ls_bcset_metadata ).
+      DATA(lo_container_local) = zcl_agc_helper=>create_container( iv_is_in_external_format = abap_true
+                                                                   is_bcset_metadata        = ls_bcset_metadata
+                                                                 ).
 
       DATA(lt_color) = compare_container( io_container_remote = lo_container_remote
                                           io_container_local  = lo_container_local
@@ -278,6 +306,55 @@ CLASS zcl_agc_ui IMPLEMENTATION.
 
   ENDMETHOD.
 
+
+  METHOD get_instance.
+
+    IF mo_abapgit_customizing_ui IS NOT BOUND.
+
+      mo_abapgit_customizing_ui = NEW #( ).
+
+    ENDIF.
+
+    ro_customizing_ui ?= mo_abapgit_customizing_ui.
+
+  ENDMETHOD.
+
+
+  METHOD zif_agc_ui~display.
+
+*   Get instance
+    DATA(lo_repository_service) = zcl_abapgit_repo_srv=>get_instance( ).
+
+    TRY.
+
+        mo_repository ?= lo_repository_service->get( iv_repository_key ).
+
+      CATCH zcx_abapgit_exception ##NO_HANDLER.
+
+    ENDTRY.
+
+*   Declaration of local object reference
+    DATA: lo_column TYPE REF TO cl_salv_column_table.
+
+*   Create customizing content list
+    TRY.
+        create_customizing_list( ).
+      CATCH cx_root INTO DATA(cx).
+        MESSAGE |Error creating cusotmizing: { cx->get_text( ) }| TYPE 'E'.
+    ENDTRY.
+
+    display_output( ).
+
+  ENDMETHOD.
+
+
+  METHOD zif_agc_ui~get_repository.
+
+    ro_repository = mo_repository.
+
+  ENDMETHOD.
+
+
   METHOD zif_agc_ui~get_selected_customizing.
 
 *   Get selected rows
@@ -292,73 +369,4 @@ CLASS zcl_agc_ui IMPLEMENTATION.
     ENDLOOP.
 
   ENDMETHOD.
-
-  METHOD zif_agc_ui~get_repository.
-
-    ro_repository = mo_repository.
-
-  ENDMETHOD.
-
-
-  METHOD compare_container.
-
-*   Get deletions as field values
-    io_container_remote->if_bcfg_config_container~get_deletions_as_fields(
-      IMPORTING
-        et_fields = DATA(lt_field_values)
-    ).
-
-*   Remove deletions from containers
-    io_container_remote->if_bcfg_config_container~remove_deletions_by_fields( lt_field_values[] ).
-    io_container_local->if_bcfg_config_container~remove_deletions_by_fields( lt_field_values[] ).
-
-*   Extract key metadata
-    DATA(lo_key_container) = io_container_local->if_bcfg_config_container~extract_key_container( ).
-
-*   Remove the data from container
-    io_container_local->if_bcfg_config_container~remove_all( ).
-
-*   Read data
-    io_container_local->if_bcfg_config_container~add_current_config( lo_key_container ).
-
-*   Compare containers which do not have deletions
-    IF io_container_local->if_bcfg_config_container~equals( io_container_remote ) = abap_false.
-
-      rt_color  = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
-
-
-    ELSEIF lt_field_values[] IS NOT INITIAL.
-
-*     Remove the data from container
-      io_container_local->if_bcfg_config_container~remove_all( ).
-
-*     Add only deletions to the container
-      io_container_local->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
-
-*     Extract key metadata
-      lo_key_container = io_container_local->if_bcfg_config_container~extract_key_container( ).
-
-*     Read data
-      io_container_local->if_bcfg_config_container~add_current_config( lo_key_container ).
-
-*     Get found lines for deleted keys
-      io_container_local->if_bcfg_config_container~get_lines_as_fields(
-        IMPORTING
-          et_fields = DATA(lt_field_values_local) " filled with field values of ALL tables in the container
-      ).
-
-*     There are lines found for deleted keys
-      IF lt_field_values_local[] IS NOT INITIAL.
-
-        rt_color[] = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
-
-      ENDIF.
-
-    ENDIF.
-
-*   Add the deleted key once again to the container
-    io_container_remote->if_bcfg_config_container~add_deletions_by_fields( lt_field_values[] ).
-
-  ENDMETHOD.
-
 ENDCLASS.
