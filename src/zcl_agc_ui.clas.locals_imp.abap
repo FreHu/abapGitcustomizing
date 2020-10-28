@@ -33,14 +33,17 @@ CLASS lcl_event_handler IMPLEMENTATION.
 
         LOOP AT lt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui_new>).
 
-          READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[] ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>)
-                                                                                WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
-                                                                                         objectname = <ls_customizing_ui_new>-objectname.
+          READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[]
+            WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
+                     objectname = <ls_customizing_ui_new>-objectname
+            ASSIGNING FIELD-SYMBOL(<ls_customizing_ui>).
+
           IF sy-subrc = 0.
 
             <ls_customizing_ui>-container_local = <ls_customizing_ui_new>-container_local.
 
-            IF <ls_customizing_ui>-container_local->if_bcfg_config_container~equals( <ls_customizing_ui>-container_remote ) = abap_false.
+            IF <ls_customizing_ui>-container_local->if_bcfg_config_container~equals(
+              <ls_customizing_ui>-container_remote ) = abap_false.
 
               DATA(lt_color) = VALUE lvc_t_scol( ( color-col = 6 color-int = 1 color-inv = 0 ) ).
 
@@ -77,9 +80,11 @@ CLASS lcl_event_handler IMPLEMENTATION.
 
         LOOP AT lt_customizing_ui[] ASSIGNING <ls_customizing_ui_new>.
 
-          READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[] ASSIGNING <ls_customizing_ui>
-                                                                                WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
-                                                                                         objectname = <ls_customizing_ui_new>-objectname.
+          READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[]
+            WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
+                     objectname = <ls_customizing_ui_new>-objectname
+            ASSIGNING <ls_customizing_ui>.
+
           CHECK sy-subrc = 0.
 
           <ls_customizing_ui>-container_remote = <ls_customizing_ui_new>-container_local.
@@ -100,38 +105,45 @@ CLASS lcl_event_handler IMPLEMENTATION.
 
         ENDIF.
 
-        lo_repository_action = zcl_agc_repository_action=>get_instance( ).
+        TRY.
+            lo_repository_action = zcl_agc_repository_action=>get_instance( ).
 
-        DATA(lt_imported_objects) = lo_repository_action->pull( ).
+            DATA(lt_imported_objects) = lo_repository_action->pull( ).
 
-        LOOP AT lt_imported_objects[] ASSIGNING <ls_customizing_ui_new>.
+            LOOP AT lt_imported_objects[] ASSIGNING <ls_customizing_ui_new>.
 
-          READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[] ASSIGNING <ls_customizing_ui>
-                                                                                WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
-                                                                                         objectname = <ls_customizing_ui_new>-objectname.
-          CHECK sy-subrc = 0.
+              READ TABLE zcl_agc_ui=>mo_abapgit_customizing_ui->mt_customizing_ui[]
+                WITH KEY objecttype = <ls_customizing_ui_new>-objecttype
+                         objectname = <ls_customizing_ui_new>-objectname
+                ASSIGNING <ls_customizing_ui>.
 
-          <ls_customizing_ui> = <ls_customizing_ui_new>.
+              CHECK sy-subrc = 0.
 
-          CASE <ls_customizing_ui>-container_result->get_status( ).
+              <ls_customizing_ui> = <ls_customizing_ui_new>.
 
-            WHEN cl_bcfg_enum_operation_status=>abort
-            OR cl_bcfg_enum_operation_status=>error.
-              <ls_customizing_ui>-import_log = icon_led_red.
+              CASE <ls_customizing_ui>-container_result->get_status( ).
 
-            WHEN cl_bcfg_enum_operation_status=>warning.
-              <ls_customizing_ui>-import_log = icon_led_yellow.
+                WHEN cl_bcfg_enum_operation_status=>abort
+                OR cl_bcfg_enum_operation_status=>error.
+                  <ls_customizing_ui>-import_log = icon_led_red.
 
-            WHEN OTHERS.
-              <ls_customizing_ui>-import_log = icon_led_green.
+                WHEN cl_bcfg_enum_operation_status=>warning.
+                  <ls_customizing_ui>-import_log = icon_led_yellow.
 
-          ENDCASE.
+                WHEN OTHERS.
+                  <ls_customizing_ui>-import_log = icon_led_green.
 
-          <ls_customizing_ui>-celltype[] = VALUE #( ( columnname = 'IMPORT_LOG' value = if_salv_c_cell_type=>hotspot ) ).
+              ENDCASE.
 
-        ENDLOOP.
+              <ls_customizing_ui>-celltype[] = VALUE #(
+                ( columnname = 'IMPORT_LOG' value = if_salv_c_cell_type=>hotspot ) ).
 
-        zcl_agc_ui=>mo_abapgit_customizing_ui->mo_customizing_output->refresh( ).
+            ENDLOOP.
+
+            zcl_agc_ui=>mo_abapgit_customizing_ui->mo_customizing_output->refresh( ).
+          CATCH cx_root INTO DATA(cx).
+            MESSAGE cx->get_text( ) TYPE 'S' DISPLAY LIKE 'E'.
+        ENDTRY.
 
     ENDCASE.
 

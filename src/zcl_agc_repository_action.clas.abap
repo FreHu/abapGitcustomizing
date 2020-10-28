@@ -247,7 +247,7 @@ CLASS ZCL_AGC_REPOSITORY_ACTION IMPLEMENTATION.
 *         Instantiate XML object
           DATA(lo_xml_data) = NEW zcl_abapgit_xml_output( ).
 
-          lo_xml_data->add( iv_name = 'SCP1'
+          lo_xml_data->zif_abapgit_xml_output~add( iv_name = 'SCP1'
                             ig_data = ls_bcset_metadata
                           ).
 
